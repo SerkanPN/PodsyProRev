@@ -402,7 +402,7 @@ app.post("/etsy/callback", async (req, res) => {
     let userId = null;
     let etsyUsername = null;
     
-    const meResponse = await fetch("https://api.etsy.com/v3/application/users/me", {
+    const meResponse = await fetch(`${BASE_URL}/users/me`, {
       headers: { "x-api-key": ETSY_API_KEY, "Authorization": `Bearer ${tokenData.access_token}` }
     });
     
@@ -418,7 +418,7 @@ app.post("/etsy/callback", async (req, res) => {
         userId = users[0].id;
       }
       
-      const shopResponse = await fetch(`https://api.etsy.com/v3/application/users/${meData.user_id}/shops`, {
+      const shopResponse = await fetch(`${BASE_URL}/users/${meData.user_id}/shops`, {
         headers: { "x-api-key": ETSY_API_KEY, "Authorization": `Bearer ${tokenData.access_token}` }
       });
       
@@ -442,7 +442,7 @@ app.post("/etsy/callback", async (req, res) => {
       return res.json({ access_token: token, token_type: "bearer", msg: "Connected successfully", shop_name: shopName });
     }
     
-    return res.status(400).json({ detail: "Failed to fetch Etsy user profile" });
+    return res.status(400).json({ detail: "Failed to fetch Etsy user profile: " + (await meResponse.text()) });
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
