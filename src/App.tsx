@@ -5,6 +5,7 @@ import SearchPage from './SearchPage';
 import ListPage from './ListPage';
 import ComparePage from './ComparePage';
 import LoginPage from './LoginPage';
+import TesterLoginPage from './TesterLoginPage';
 import ProfilePage from './ProfilePage';
 import UploadProductPage from './UploadProductPage';
 import { useAppContext } from './AppContext';
@@ -288,6 +289,9 @@ const App = () => {
   }
 
   if (currentUser === null) {
+    if (window.location.pathname === '/testers') {
+      return <TesterLoginPage />;
+    }
     return <LoginPage />;
   }
 
