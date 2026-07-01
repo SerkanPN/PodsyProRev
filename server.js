@@ -19,6 +19,7 @@ const ETSY_API_KEY = process.env.ETSY_API_KEY || "34axrr0o1tzjvfcdn2mexpp4";
 const ETSY_SHARED_SECRET = process.env.ETSY_SHARED_SECRET || "f5njckm23y";
 const REDIRECT_URI = process.env.REDIRECT_URI || "https://podsy.pro/etsy/callback";
 const BASE_URL = "https://openapi.etsy.com/v3/application";
+const mysqlDate = (d = new Date()) => d.toISOString().slice(0, 19).replace("T", " ");
 
 const db = mysql.createPool({
   host: process.env.DB_HOST || 'localhost',
@@ -279,7 +280,7 @@ const checkAnalysisLimit = async (req, res, next) => {
     }
   }
   
-  const today = new Date().toISOString().split('T')[0];
+  const today = mysqlDate().split(' ')[0];
   let usage = user.daily_usage || 0;
   const limit = user.daily_limit || 50;
   
@@ -359,7 +360,7 @@ app.get("/etsy/connect", async (req, res) => {
     const { codeVerifier, codeChallenge } = generatePkceChallenge();
     const state = crypto.randomBytes(16).toString('base64url');
     
-    await db.execute("INSERT INTO oauth_states (state, code_verifier, created_at) VALUES (?, ?, ?)", [state, codeVerifier, new Date().toISOString()]);
+    await db.execute("INSERT INTO oauth_states (state, code_verifier, created_at) VALUES (?, ?, ?)", [state, codeVerifier, mysqlDate()]);
     
     const scopes = "listings_w listings_r listings_d shops_r shops_w transactions_r transactions_w profile_r email_r";
     const encodedScopes = encodeURIComponent(scopes);
@@ -394,7 +395,7 @@ app.post("/etsy/callback", async (req, res) => {
     if (!tokenResponse.ok) return res.status(400).json({ detail: `Failed to get token: ${await tokenResponse.text()}` });
     
     const tokenData = await tokenResponse.json();
-    const expiresAt = new Date(Date.now() + tokenData.expires_in * 1000).toISOString();
+    const expiresAt = mysqlDate(new Date(Date.now() + tokenData.expires_in * 1000));
     
     let shopName = null;
     let etsyShopId = null;
@@ -484,8 +485,8 @@ app.get("/search/:keyword", authenticateToken, checkAnalysisLimit, async (req, r
     const results = data.results || [];
     
     if (offset === 0) {
-      await db.execute("INSERT IGNORE INTO keywords (keyword, total_results, last_scanned, is_tracked) VALUES (?, ?, ?, 0)", [keyword, count, new Date().toISOString()]);
-      await db.execute("UPDATE keywords SET total_results = ?, last_scanned = ? WHERE keyword = ?", [count, new Date().toISOString(), keyword]);
+      await db.execute("INSERT IGNORE INTO keywords (keyword, total_results, last_scanned, is_tracked) VALUES (?, ?, ?, 0)", [keyword, count, mysqlDate()]);
+      await db.execute("UPDATE keywords SET total_results = ?, last_scanned = ? WHERE keyword = ?", [count, mysqlDate(), keyword]);
     }
     
     const parsedResults = [];
@@ -511,7 +512,7 @@ app.get("/search/:keyword", authenticateToken, checkAnalysisLimit, async (req, r
       await db.execute("INSERT IGNORE INTO shops (shop_id, shop_name, icon_url) VALUES (?, ?, ?)", [s_id, shop_name, icon_url]);
       await db.execute("UPDATE shops SET shop_name = ?, icon_url = ? WHERE shop_id = ?", [shop_name, icon_url, s_id]);
       
-      const now = new Date().toISOString();
+      const now = mysqlDate();
       const [trackRows] = await db.execute("SELECT is_tracked FROM listings WHERE listing_id = ?", [l_id]);
       const current_is_tracked = trackRows.length > 0 ? trackRows[0].is_tracked : 0;
       
@@ -539,7 +540,7 @@ app.get("/search/:keyword", authenticateToken, checkAnalysisLimit, async (req, r
     
     const finalResponse = { keyword, total_count: count, offset, listings: parsedResults };
     await db.execute("REPLACE INTO full_json_cache (target_id, target_type, data, last_updated) VALUES (?, 'keyword', ?, ?)", [
-      cacheKey, JSON.stringify(finalResponse), new Date().toISOString()
+      cacheKey, JSON.stringify(finalResponse), mysqlDate()
     ]);
     
     finalResponse.listings = await injectTrackingStatusToListings(finalResponse.listings, req.user.id);
@@ -604,14 +605,14 @@ app.get("/shop/:shop_id", authenticateToken, checkAnalysisLimit, async (req, res
     }
     
     await db.execute("INSERT INTO snapshots (target_id, target_type, transaction_sold_count, capture_time) VALUES (?, 'shop', ?, ?)", [
-      shopId, shopCore.transaction_sold_count || 0, new Date().toISOString()
+      shopId, shopCore.transaction_sold_count || 0, mysqlDate()
     ]);
     
     const [history] = await db.execute("SELECT capture_time, transaction_sold_count FROM snapshots WHERE target_id = ? AND target_type = 'shop' ORDER BY capture_time DESC", [shopId]);
     const finalResponse = { shop: shopCore, listings: parsedShopListings, history };
     
     await db.execute("REPLACE INTO full_json_cache (target_id, target_type, data, last_updated) VALUES (?, 'shop', ?, ?)", [
-      shopId, JSON.stringify(finalResponse), new Date().toISOString()
+      shopId, JSON.stringify(finalResponse), mysqlDate()
     ]);
     
     finalResponse.listings = await injectTrackingStatusToListings(finalResponse.listings, req.user.id);
@@ -650,7 +651,7 @@ app.get("/listing/:listing_id", authenticateToken, checkAnalysisLimit, async (re
     const price_val = p_data ? (parseFloat(p_data.amount || 0) / parseFloat(p_data.divisor || 1)) : 0.0;
     const original_price_val = p_data.on_sale ? (parseFloat(p_data.original_amount || 0) / parseFloat(p_data.divisor || 1)) : null;
     const badges_json = JSON.stringify(core.badges || []);
-    const now = new Date().toISOString();
+    const now = mysqlDate();
     
     const [snapResult] = await db.execute(`
       INSERT INTO snapshots (target_id, target_type, views, favorites, quantity, price, original_price, badges_json, last_modified_timestamp, capture_time) 
