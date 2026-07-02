@@ -15,10 +15,9 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.SECRET_KEY || "PODSYPRO_SUPER_SECRET_KEY_CHANGE_ME";
-let rawApiKey = (process.env.ETSY_API_KEY || "34axrr0o1tzjvfcdn2mexpp4").trim();
-if (rawApiKey.includes(':')) rawApiKey = rawApiKey.split(':')[0];
-const ETSY_API_KEY = rawApiKey;
-const ETSY_SHARED_SECRET = (process.env.ETSY_SHARED_SECRET || "f5njekm23y").trim();
+const ETSY_API_KEY = "34axrr0o1tzjvfcdn2mexpp4";
+const ETSY_SHARED_SECRET = "f5njekm23y";
+
 const REDIRECT_URI = process.env.REDIRECT_URI || "https://podsy.pro/etsy/callback";
 const BASE_URL = "https://openapi.etsy.com/v3/application";
 const mysqlDate = (d = new Date()) => d.toISOString().slice(0, 19).replace("T", " ");
@@ -402,15 +401,19 @@ app.post("/etsy/callback", async (req, res) => {
     let shopName = null;
     let etsyShopId = null;
     let userId = null;
-    let etsyUsername = null;
+    
+    // Extract etsy_user_id directly from the access token, exactly like python does
+    const etsy_user_id = tokenData.access_token.includes('.') ? tokenData.access_token.split('.')[0] : null;
+    let etsyUsername = `etsy_${etsy_user_id}`;
+    
     const authString = `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`;
-    const meResponse = await fetch("https://api.etsy.com/v3/application/users/me", {
+    
+    const meResponse = await fetch(`https://api.etsy.com/v3/application/users/${etsy_user_id}`, {
       headers: { "x-api-key": authString, "Authorization": `Bearer ${tokenData.access_token}` }
     });
     
     if (meResponse.ok) {
       const meData = await meResponse.json();
-      etsyUsername = `etsy_${meData.user_id}`;
       
       const [users] = await db.execute("SELECT id FROM users WHERE username = ?", [etsyUsername]);
       if (users.length === 0) {
@@ -419,7 +422,7 @@ app.post("/etsy/callback", async (req, res) => {
       } else {
         userId = users[0].id;
       }
-      const shopResponse = await fetch(`https://api.etsy.com/v3/application/users/${meData.user_id}/shops`, {
+      const shopResponse = await fetch(`https://api.etsy.com/v3/application/users/${etsy_user_id}/shops`, {
         headers: { "x-api-key": authString, "Authorization": `Bearer ${tokenData.access_token}` }
       });
       
