@@ -1,4 +1,4 @@
-import React, { createContext, useState, useCallback, useContext, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, useCallback, useContext, ReactNode } from 'react';
 
 // Context'te saklanacak verilerin ve fonksiyonların tip tanımı
 interface AppContextType {
