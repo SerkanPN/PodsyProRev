@@ -32,13 +32,13 @@ const pool = new Pool({
 const db = {
   execute: async (sql, params = []) => {
     let paramIndex = 1;
-    let pgSql = sql.replace(/\?/g, () => `${paramIndex++}`);
+    let pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
     const res = await pool.query(pgSql, params);
     return [res.rows, res];
   },
   query: async (sql, params = []) => {
     let paramIndex = 1;
-    let pgSql = sql.replace(/\?/g, () => `${paramIndex++}`);
+    let pgSql = sql.replace(/\?/g, () => `$${paramIndex++}`);
     const res = await pool.query(pgSql, params);
     return [res.rows, res];
   }
