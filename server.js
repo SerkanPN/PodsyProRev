@@ -267,7 +267,11 @@ const authenticateToken = (req, res, next) => {
   jwt.verify(token, SECRET_KEY, async (err, decoded) => {
     if (err) return res.status(401).json({ detail: "Could not validate credentials" });
     try {
-      const [users] = await db.execute("SELECT id, username, role, daily_limit, daily_usage, subscription_end_date FROM users WHERE username = ?", [decoded.sub]);
+      // Decode with fallback to sub for older tokens
+      const searchCol = decoded.id ? "id" : "username";
+      const searchVal = decoded.id ? decoded.id : decoded.sub;
+      
+      const [users] = await db.execute(`SELECT id, username, role, daily_limit, daily_usage, subscription_end_date FROM users WHERE ${searchCol} = ?`, [searchVal]);
       if (users.length === 0) return res.status(401).json({ detail: "User not found" });
       req.user = users[0];
       next();
@@ -375,7 +379,7 @@ app.post("/api/auth/google", async (req, res) => {
       await db.execute("UPDATE users SET google_id = ?, avatar_url = ? WHERE id = ?", [googleId, avatarUrl, userId]);
     }
 
-    const jwtToken = jwt.sign({ id: userId, username, email, role }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    const jwtToken = jwt.sign({ id: userId, username, email, role }, SECRET_KEY, { expiresIn: '7d' });
     res.json({ token: jwtToken });
   } catch (e) {
     console.error("Google auth error:", e);
