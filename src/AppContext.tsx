@@ -14,6 +14,7 @@ interface AppContextType {
   logout: () => void;
   token: string | null;
   fetchMe: () => void;
+  authLoading: boolean;
 }
 
 // Başlangıç değerleriyle context'i oluşturma
@@ -34,6 +35,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [token, setToken] = useState<string | null>(localStorage.getItem('podsy_token'));
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
 
   // Supabase Auth Listener
   useEffect(() => {
@@ -48,6 +50,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             avatar_url: session.user.user_metadata?.avatar_url || ''
           });
         }
+        setAuthLoading(false);
       });
 
       supabase.auth.onAuthStateChange((_event, session) => {
@@ -63,6 +66,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           setToken(null);
           setCurrentUser(null);
         }
+        setAuthLoading(false);
       });
     });
   }, []);
@@ -186,7 +190,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return 0;
   };
 
-  const value = { favData, historyData, fetchFavorites, fetchHistory, toggleFollow, HeartIcon, resolvePrice, currentUser, loginWithGoogle, logout, token, fetchMe };
+  const value = { favData, historyData, fetchFavorites, fetchHistory, toggleFollow, HeartIcon, resolvePrice, currentUser, loginWithGoogle, logout, token, fetchMe, authLoading };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

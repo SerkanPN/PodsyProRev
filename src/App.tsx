@@ -24,7 +24,7 @@ type ViewState =
   | { view: 'history_listings' | 'history_shops' | 'history_keywords' };
 
 const App = () => {
-  const { currentUser, logout, favData, historyData, fetchFavorites, fetchHistory, token } = useAppContext();
+  const { currentUser, logout, favData, historyData, fetchFavorites, fetchHistory, token, authLoading } = useAppContext();
   // State'leri birleştirerek daha yönetilebilir hale getirelim.
   const [currentView, setCurrentView] = useState<ViewState>({ view: 'dashboard' });
   const [searchQuery, setSearchQuery] = useState('');
@@ -341,7 +341,7 @@ const App = () => {
     }
   };
 
-  if (currentUser === undefined) {
+  if (authLoading || currentUser === undefined) {
     return <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white font-mono">Loading...</div>;
   }
 
