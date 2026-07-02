@@ -1,27 +1,21 @@
 import React, { useState } from 'react';
-import { useAppContext } from './AppContext';
-import { GoogleLogin } from '@react-oauth/google';
+import { supabase } from './supabase';
 
 const LoginPage: React.FC = () => {
-  const { loginWithGoogle } = useAppContext();
   const [error, setError] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (window.location.hash.includes('id_token=')) {
-      const params = new URLSearchParams(window.location.hash.substring(1));
-      const idToken = params.get('id_token');
-      if (idToken) {
-        loginWithGoogle(idToken).catch(err => setError(err.message || 'Login failed'));
-        window.history.replaceState(null, '', window.location.pathname);
-      }
+  const handleManualLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: window.location.origin,
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      setError(err.message || 'Login failed');
     }
-  }, [loginWithGoogle]);
-
-  const handleManualLogin = () => {
-    const clientId = '43553473187-7ji4la9thip630a7lknsedape04e5rl0.apps.googleusercontent.com';
-    const redirectUri = 'https://podsy.pro';
-    const url = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${redirectUri}&response_type=token id_token&scope=email profile openid&nonce=abc`;
-    window.location.href = url;
   };
 
   return (
