@@ -35,25 +35,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [token, setToken] = useState<string | null>(localStorage.getItem('podsy_token'));
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // Supabase Auth Listener
-  useEffect(() => {
-    import('./supabase').then(({ supabase }) => {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) {
-          setToken(session.access_token);
-        }
-      });
-
-      supabase.auth.onAuthStateChange((_event, session) => {
-        if (session) {
-          setToken(session.access_token);
-        } else {
-          setToken(null);
-        }
-      });
-    });
-  }, []);
-
   // Token değiştiğinde localStorage'ı güncelle ve kullanıcıyı çek
   useEffect(() => {
     if (token) {
@@ -75,19 +56,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const data = await res.json();
         setCurrentUser(data);
       } else {
-        // Fallback to sending token to /api/auth/google in case user doesn't exist yet
-        const authRes = await fetch('https://api.podsy.pro/api/auth/google', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
-        });
-        if (authRes.ok) {
-          const authData = await authRes.json();
-          // We got our custom backend token
-          setToken(authData.token);
-        } else {
-          setToken(null);
-        }
+        setToken(null);
       }
     } catch (e) {
       console.error(e);
@@ -96,12 +65,17 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const loginWithGoogle = async (googleToken: string) => {
-    // This function is kept for backward compatibility if needed, but not used by new LoginPage
+    const res = await fetch('https://api.podsy.pro/api/auth/google', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: googleToken }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Google login failed');
+    setToken(data.token);
   };
 
-  const logout = async () => {
-    const { supabase } = await import('./supabase');
-    await supabase.auth.signOut();
+  const logout = () => {
     setToken(null);
     setCurrentUser(null);
   };
