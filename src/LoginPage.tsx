@@ -36,7 +36,7 @@ const LoginPage: React.FC = () => {
           <GoogleLogin
             onSuccess={handleSuccess}
             onError={handleError}
-            useOneTap
+            use_fedcm_for_prompt={false}
             theme="filled_black"
             shape="pill"
             size="large"
