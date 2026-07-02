@@ -331,22 +331,32 @@ app.post("/api/auth/google", async (req, res) => {
   try {
     const { token } = req.body;
     
-    // Verify token using Google's public tokeninfo endpoint to avoid google-auth-library dependency
-    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
-    if (!googleRes.ok) {
-      return res.status(400).json({ error: "Invalid Google Token" });
+    // Decode the Supabase token to get the issuer (Supabase URL)
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.iss) return res.status(400).json({ error: "Invalid Supabase Token" });
+    
+    // Get the base Supabase URL (e.g. https://<project>.supabase.co)
+    const supabaseUrl = decoded.iss.replace('/auth/v1', '');
+    
+    // Verify token by calling Supabase's /auth/v1/user endpoint
+    const supabaseRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    
+    if (!supabaseRes.ok) {
+      return res.status(400).json({ error: "Supabase Authentication Failed" });
     }
     
-    const payload = await googleRes.json();
+    const payload = await supabaseRes.json();
     
     if (!payload || !payload.email) {
-      return res.status(400).json({ error: "Invalid Google Token Payload" });
+      return res.status(400).json({ error: "Invalid Supabase User Payload" });
     }
 
     const email = payload.email;
-    const googleId = payload.sub;
-    const avatarUrl = payload.picture;
-    const username = payload.name || email.split('@')[0];
+    const googleId = payload.id; // Supabase user ID
+    const avatarUrl = payload.user_metadata?.avatar_url || payload.user_metadata?.picture || '';
+    const username = payload.user_metadata?.full_name || payload.user_metadata?.name || email.split('@')[0];
 
     // Check if user exists by email
     let [existing] = await db.execute("SELECT id, role FROM users WHERE email = ? OR google_id = ?", [email, googleId]);
