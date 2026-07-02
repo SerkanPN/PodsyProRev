@@ -41,14 +41,27 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       supabase.auth.getSession().then(({ data: { session } }) => {
         if (session) {
           setToken(session.access_token);
+          setCurrentUser({
+            id: session.user.id,
+            email: session.user.email,
+            role: 'user',
+            avatar_url: session.user.user_metadata?.avatar_url || ''
+          });
         }
       });
 
       supabase.auth.onAuthStateChange((_event, session) => {
         if (session) {
           setToken(session.access_token);
+          setCurrentUser({
+            id: session.user.id,
+            email: session.user.email,
+            role: 'user',
+            avatar_url: session.user.user_metadata?.avatar_url || ''
+          });
         } else {
           setToken(null);
+          setCurrentUser(null);
         }
       });
     });
@@ -61,7 +74,6 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       fetchMe();
     } else {
       localStorage.removeItem('podsy_token');
-      setCurrentUser(null);
     }
   }, [token]);
 
