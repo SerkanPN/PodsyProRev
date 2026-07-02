@@ -60,7 +60,9 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    // Only run URL parsing and OAuth handling if auth is finished loading
     if (authLoading) return;
+
     const urlParams = new URLSearchParams(window.location.search);
     
     // ETSY OAUTH CALLBACK HANDLING
@@ -105,12 +107,13 @@ const App = () => {
 
     window.history.replaceState(initialState, '', window.location.search);
     setCurrentView(initialState);
+  }, [authLoading, currentUser, token]); // ADDED PROPER DEPENDENCIES
 
+  useEffect(() => {
     const handlePopState = (event: PopStateEvent) => {
       if (event.state && event.state.view) {
         setCurrentView(event.state);
       } else {
-        // Fallback for older browsers or manual URL changes
         setCurrentView({ view: 'dashboard' });
       }
     };
