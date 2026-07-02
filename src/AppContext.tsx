@@ -79,7 +79,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         const authRes = await fetch('https://api.podsy.pro/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token })
+          body: JSON.stringify({ 
+            token, 
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY 
+          })
         });
         if (authRes.ok) {
           const authData = await authRes.json();

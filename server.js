@@ -329,7 +329,7 @@ const injectTrackingStatusToListings = async (listings, userId) => {
 
 app.post("/api/auth/google", async (req, res) => {
   try {
-    const { token } = req.body;
+    const { token, apikey } = req.body;
     
     // Decode the Supabase token to get the issuer (Supabase URL)
     const decoded = jwt.decode(token);
@@ -340,7 +340,10 @@ app.post("/api/auth/google", async (req, res) => {
     
     // Verify token by calling Supabase's /auth/v1/user endpoint
     const supabaseRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: { 
+        'Authorization': `Bearer ${token}`,
+        'apikey': apikey || ''
+      }
     });
     
     if (!supabaseRes.ok) {
