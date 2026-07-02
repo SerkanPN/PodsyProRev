@@ -10,10 +10,10 @@ interface AppContextType {
   HeartIcon: React.FC<{ isTracked: boolean }>;
   resolvePrice: (p: any) => number;
   currentUser: any;
-  login: (u: string, p: string) => Promise<void>;
-  register: (u: string, p: string) => Promise<void>;
+  loginWithGoogle: (token: string) => Promise<void>;
   logout: () => void;
   token: string | null;
+  fetchMe: () => void;
 }
 
 // Başlangıç değerleriyle context'i oluşturma
@@ -32,64 +32,52 @@ export const useAppContext = () => {
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [favData, setFavData] = useState<any[]>([]);
   const [historyData, setHistoryData] = useState<any[]>([]);
-  const [token, setToken] = useState<string | null>(localStorage.getItem('token'));
+  const [token, setToken] = useState<string | null>(localStorage.getItem('podsy_token'));
   const [currentUser, setCurrentUser] = useState<any>(null);
 
-  // When token changes, fetch user info
-  React.useEffect(() => {
+  // Token değiştiğinde localStorage'ı güncelle ve kullanıcıyı çek
+  useEffect(() => {
     if (token) {
-      fetch('https://api.podsy.pro/api/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      })
-      .then(res => {
-        if (!res.ok) throw new Error('Invalid token');
-        return res.json();
-      })
-      .then(user => setCurrentUser(user))
-      .catch(() => {
-        setToken(null);
-        setCurrentUser(null);
-        localStorage.removeItem('token');
-      });
+      localStorage.setItem('podsy_token', token);
+      fetchMe();
     } else {
+      localStorage.removeItem('podsy_token');
       setCurrentUser(null);
     }
   }, [token]);
 
-  const login = async (username: string, password: string) => {
-    const formData = new URLSearchParams();
-    formData.append('username', username);
-    formData.append('password', password);
-    const res = await fetch('https://api.podsy.pro/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: formData.toString()
-    });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.detail || 'Giriş başarısız');
+  const fetchMe = async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('https://api.podsy.pro/api/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentUser(data);
+      } else {
+        setToken(null);
+      }
+    } catch (e) {
+      console.error(e);
+      setToken(null);
     }
-    const data = await res.json();
-    setToken(data.access_token);
-    localStorage.setItem('token', data.access_token);
   };
 
-  const register = async (username: string, password: string) => {
-    const res = await fetch('https://api.podsy.pro/api/register', {
+  const loginWithGoogle = async (googleToken: string) => {
+    const res = await fetch('https://api.podsy.pro/api/auth/google', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
+      body: JSON.stringify({ token: googleToken }),
     });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.detail || 'Kayıt başarısız');
-    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Google login failed');
+    setToken(data.token);
   };
 
   const logout = () => {
     setToken(null);
     setCurrentUser(null);
-    localStorage.removeItem('token');
   };
 
   const fetchFavorites = useCallback((type: string) => {
@@ -109,7 +97,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const toggleFollow = useCallback(async (type: string, id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
-      const res = await fetch(`https://api.podsy.pro/toggle-follow/${type}/${encodeURIComponent(id)}`, { method: 'POST' });
+      const res = await fetch(`https://api.podsy.pro/toggle-follow/${type}/${encodeURIComponent(id)}`, { 
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
       const data = await res.json();
       
       // Favori listesini anında güncelle
@@ -154,7 +145,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     return 0;
   };
 
-  const value = { favData, historyData, fetchFavorites, fetchHistory, toggleFollow, HeartIcon, resolvePrice, currentUser, login, register, logout, token };
+  const value = { favData, historyData, fetchFavorites, fetchHistory, toggleFollow, HeartIcon, resolvePrice, currentUser, loginWithGoogle, logout, token, fetchMe };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 };

@@ -222,18 +222,69 @@ const App = () => {
     }
   }, []);
 
+  const hasShops = currentUser?.shops && currentUser.shops.length > 0;
+  const isAdmin = currentUser?.role === 'admin';
+
   // Hangi sayfanın render edileceğini belirleyen fonksiyon
   const CurrentViewComponent = () => {
+    if (!hasShops && currentView.view !== 'profile') {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
+          <div className="w-24 h-24 mb-6 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
+            <svg className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          </div>
+          <h2 className="text-3xl font-black text-white mb-2">Connect Your Etsy Shop</h2>
+          <p className="text-zinc-400 mb-8 max-w-md mx-auto">You must connect an Etsy shop to your account before you can use any PodsyPro features.</p>
+          <button onClick={() => navigateTo({ view: 'profile' })} className="bg-sky-500 hover:bg-sky-400 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg shadow-sky-500/20 transition">Go to Profile</button>
+        </div>
+      );
+    }
+
     switch (currentView.view) {
       case 'dashboard':
         return (
-          <div className="max-w-4xl mx-auto mt-20 p-10 border-2 border-dashed border-zinc-800 rounded-3xl text-center">
-            <h2 className="text-2xl font-black text-white mb-4 uppercase tracking-tighter">Etsy Keyword Import</h2>
-            <p className="text-zinc-500 mb-8 text-sm">Upload the Excel file downloaded from Etsy Search Analytics here.<br/>All keywords will be automatically scanned and added to the database.</p>
-            <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="hidden" id="excel-upload" />
-            <label htmlFor="excel-upload" className="cursor-pointer bg-sky-500 hover:bg-sky-400 text-white px-8 py-4 rounded-2xl font-black uppercase transition-all inline-block">
-              {syncing ? 'PROCESSING...' : 'SELECT EXCEL FILE'}
-            </label>
+          <div className="max-w-5xl mx-auto space-y-8">
+            <h2 className="text-3xl font-black tracking-tighter text-white">Dashboard Overview</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Shortcut Cards */}
+              <div onClick={() => navigateTo({ view: 'profile' })} className="bg-[#111] border border-[#222] p-6 rounded-2xl cursor-pointer hover:border-sky-500/50 hover:bg-[#151515] transition group">
+                <div className="w-12 h-12 bg-sky-500/10 text-sky-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
+                </div>
+                <h3 className="font-bold text-white mb-1">My Shops</h3>
+                <p className="text-xs text-zinc-500">View your connected shops and profile.</p>
+              </div>
+              <div onClick={() => {
+                if (hasShops) {
+                  const shopId = currentUser.shops[0].etsy_shop_id;
+                  navigateTo({ view: 'shop', id: shopId });
+                }
+              }} className="bg-[#111] border border-[#222] p-6 rounded-2xl cursor-pointer hover:border-emerald-500/50 hover:bg-[#151515] transition group">
+                <div className="w-12 h-12 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </div>
+                <h3 className="font-bold text-white mb-1">Shop Analytics</h3>
+                <p className="text-xs text-zinc-500">Analyze performance and metrics.</p>
+              </div>
+              <div onClick={() => navigateTo({ view: 'compare' })} className="bg-[#111] border border-[#222] p-6 rounded-2xl cursor-pointer hover:border-purple-500/50 hover:bg-[#151515] transition group">
+                <div className="w-12 h-12 bg-purple-500/10 text-purple-500 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
+                </div>
+                <h3 className="font-bold text-white mb-1">Compare Benchmark</h3>
+                <p className="text-xs text-zinc-500">Compare shops side by side.</p>
+              </div>
+            </div>
+
+            {isAdmin && (
+              <div className="mt-10 p-10 border-2 border-dashed border-rose-900/50 bg-rose-950/10 rounded-3xl text-center">
+                <h2 className="text-xl font-black text-rose-500 mb-2 uppercase tracking-tighter">Admin Zone: Keyword Import</h2>
+                <p className="text-zinc-500 mb-6 text-xs">Upload Etsy Search Analytics Excel file to populate database.</p>
+                <input type="file" accept=".xlsx, .xls" onChange={handleFileUpload} className="hidden" id="excel-upload" />
+                <label htmlFor="excel-upload" className="cursor-pointer bg-rose-900/50 hover:bg-rose-800 text-rose-300 px-6 py-3 rounded-xl font-bold uppercase transition-all inline-block text-xs border border-rose-900">
+                  {syncing ? 'Processing...' : 'Upload Excel File'}
+                </label>
+              </div>
+            )}
           </div>
         );
       case 'search':
@@ -301,7 +352,7 @@ const App = () => {
 
   return (
     <div className="flex min-h-screen bg-[#0a0a0a] text-zinc-100 font-sans selection:bg-sky-500/30">
-      {currentUser && (
+      {currentUser && hasShops && (
         <aside className="w-64 bg-[#111] border-r border-[#222] flex flex-col sticky top-0 h-screen shrink-0">
           <div className="p-6 border-b border-[#222] cursor-pointer" onClick={() => navigateTo({ view: 'dashboard' })}>
             <h1 className="text-2xl font-black m-0 tracking-tighter italic text-white hover:text-sky-400 transition">PODSY<span className="text-sky-500">PRO</span></h1>
@@ -366,25 +417,29 @@ const App = () => {
 
         </nav>
 
-        <div className="p-4 border-t border-[#222]">
-          <button onClick={handleSyncAll} disabled={syncing} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${syncing ? 'bg-emerald-900/50 text-emerald-500 border border-emerald-900 cursor-wait' : 'bg-[#1a1a1a] text-zinc-400 hover:bg-emerald-600 hover:text-white border border-[#333] hover:border-emerald-500 shadow-lg shadow-black'}`}>
-            <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-            {syncing ? 'SYNCING...' : 'SYNC ALL DATA'}
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="p-4 border-t border-[#222]">
+            <button onClick={handleSyncAll} disabled={syncing} className={`w-full py-3 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${syncing ? 'bg-emerald-900/50 text-emerald-500 border border-emerald-900 cursor-wait' : 'bg-[#1a1a1a] text-zinc-400 hover:bg-emerald-600 hover:text-white border border-[#333] hover:border-emerald-500 shadow-lg shadow-black'}`}>
+              <svg className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+              {syncing ? 'SYNCING...' : 'SYNC ALL DATA'}
+            </button>
+          </div>
+        )}
       </aside>
       )}
 
       <main className="flex-1 p-8 md:p-12 overflow-y-auto relative">
-        <div className="max-w-4xl mx-auto flex gap-3 bg-[#111] p-2 rounded-2xl border border-[#333] mb-10 items-center shadow-2xl focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/50 transition-all z-50 relative">
-          <div className="pl-4 text-zinc-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div>
-          <input 
-            className="flex-1 bg-transparent border-none outline-none text-zinc-100 px-2 py-3 text-sm placeholder-zinc-600 font-medium"
-            placeholder="Enter Keyword, Link, Listing ID, or Shop ID for deep analysis..."
-            value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
-          />
-          <button onClick={() => handleSearch(searchQuery)} className="bg-zinc-100 text-zinc-900 border-none px-8 py-3 rounded-xl font-black text-xs cursor-pointer hover:bg-sky-500 hover:text-white hover:scale-105 active:scale-95 transition-all shadow-lg">{loading ? "SCANNING..." : "HACK"}</button>
-        </div>
+        {hasShops && (
+          <div className="max-w-4xl mx-auto flex gap-3 bg-[#111] p-2 rounded-2xl border border-[#333] mb-10 items-center shadow-2xl focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/50 transition-all z-50 relative">
+            <div className="pl-4 text-zinc-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div>
+            <input 
+              className="flex-1 bg-transparent border-none outline-none text-zinc-100 px-2 py-3 text-sm placeholder-zinc-600 font-medium"
+              placeholder="Enter Keyword, Link, Listing ID, or Shop ID for deep analysis..."
+              value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
+            />
+            <button onClick={() => handleSearch(searchQuery)} className="bg-zinc-100 text-zinc-900 border-none px-8 py-3 rounded-xl font-black text-xs cursor-pointer hover:bg-sky-500 hover:text-white hover:scale-105 active:scale-95 transition-all shadow-lg">{loading ? "SCANNING..." : "HACK"}</button>
+          </div>
+        )}
 
         {errorData && !loading && (
           <div className="max-w-4xl mx-auto mb-8 bg-rose-950/30 border border-rose-900/50 rounded-2xl p-6 shadow-2xl animate-[fadeIn_0.3s]">

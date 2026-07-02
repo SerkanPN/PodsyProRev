@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
+import { OAuth2Client } from 'google-auth-library';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 
@@ -139,6 +140,9 @@ async function initDB() {
     CREATE TABLE IF NOT EXISTS users (
       id INT AUTO_INCREMENT PRIMARY KEY,
       username VARCHAR(255) UNIQUE,
+      email VARCHAR(255) UNIQUE,
+      google_id VARCHAR(255) UNIQUE,
+      avatar_url VARCHAR(500),
       password_hash VARCHAR(255),
       role VARCHAR(50) DEFAULT 'user',
       daily_limit INT DEFAULT 50,
@@ -148,6 +152,10 @@ async function initDB() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  try { await db.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN google_id VARCHAR(255) UNIQUE"); } catch(e) {}
+  try { await db.execute("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500)"); } catch(e) {}
 
   await db.execute(`
     CREATE TABLE IF NOT EXISTS etsy_connections (
@@ -319,6 +327,47 @@ const injectTrackingStatusToListings = async (listings, userId) => {
 };
 
 // --- AUTH ENDPOINTS ---
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy_client_id');
+
+app.post("/api/auth/google", async (req, res) => {
+  try {
+    const { token } = req.body;
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID || 'dummy_client_id'
+    });
+    const payload = ticket.getPayload();
+    
+    if (!payload || !payload.email) {
+      return res.status(400).json({ error: "Invalid Google Token" });
+    }
+
+    const email = payload.email;
+    const googleId = payload.sub;
+    const avatarUrl = payload.picture;
+    const username = payload.name || email.split('@')[0];
+
+    // Check if user exists by email
+    let [existing] = await db.execute("SELECT id, role FROM users WHERE email = ? OR google_id = ?", [email, googleId]);
+    let userId;
+    let role = 'user';
+
+    if (existing.length === 0) {
+      const [result] = await db.execute("INSERT INTO users (username, email, google_id, avatar_url, role) VALUES (?, ?, ?, ?, 'user')", [username, email, googleId, avatarUrl]);
+      userId = result.insertId;
+    } else {
+      userId = existing[0].id;
+      role = existing[0].role;
+      await db.execute("UPDATE users SET google_id = ?, avatar_url = ? WHERE id = ?", [googleId, avatarUrl, userId]);
+    }
+
+    const jwtToken = jwt.sign({ id: userId, username, email, role }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+    res.json({ token: jwtToken });
+  } catch (e) {
+    console.error("Google auth error:", e);
+    res.status(500).json({ error: "Google authentication failed" });
+  }
+});
 app.post("/api/register", async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -346,8 +395,32 @@ app.post("/api/login", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get("/api/me", authenticateToken, (req, res) => {
-  res.json({ username: req.user.username, id: req.user.id });
+app.get("/api/me", authenticateToken, async (req, res) => {
+  try {
+    const [users] = await db.execute("SELECT id, username, email, avatar_url, role FROM users WHERE id = ?", [req.user.id]);
+    if (users.length === 0) return res.status(404).json({ error: "User not found" });
+    const user = users[0];
+    
+    const [shops] = await db.execute(`
+      SELECT ec.id, ec.etsy_shop_id, ec.shop_name, ec.expires_at, s.icon_url 
+      FROM etsy_connections ec
+      LEFT JOIN shops s ON ec.etsy_shop_id = s.shop_id
+      WHERE ec.user_id = ?
+    `, [req.user.id]);
+    
+    res.json({ ...user, shops });
+  } catch(e) { res.status(500).json({ error: e.message }); }
+});
+
+app.put("/api/me/username", authenticateToken, async (req, res) => {
+  try {
+    const { username } = req.body;
+    if (!username || username.trim().length < 3) return res.status(400).json({ error: "Invalid username" });
+    await db.execute("UPDATE users SET username = ? WHERE id = ?", [username.trim(), req.user.id]);
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // --- ETSY OAUTH ENDPOINTS ---
@@ -355,6 +428,8 @@ const generatePkceChallenge = () => {
   const codeVerifier = crypto.randomBytes(32).toString('base64url');
   const codeChallenge = crypto.createHash('sha256').update(codeVerifier).digest('base64url');
   return { codeVerifier, codeChallenge };
+};
+
 };
 
 app.get("/etsy/connect", async (req, res) => {
@@ -593,7 +668,7 @@ app.get("/shop/:shop_id", authenticateToken, checkAnalysisLimit, async (req, res
       const l_id = String(item.listing_id);
       let img_url = "";
       const img_data = item.images || item.Images || [];
-      if (img_data.length > 0) img_url = img_data[0].url_570xN || "";
+      if (img_data.length > 0) img_url = img_data[0].url_570xN || img_data[0].url_fullxfull || "";
       
       const p_data = item.price || {};
       const price_val = p_data ? (parseFloat(p_data.amount || 0) / parseFloat(p_data.divisor || 1)) : 0.0;
@@ -725,7 +800,7 @@ app.post("/toggle-follow/:target_type/:target_id", authenticateToken, async (req
         const resApi = await fetch(`${BASE_URL}/listings/${target_id}?includes=Images`, { headers: { "x-api-key": authString } });
         if (resApi.ok) {
           const data = await resApi.json();
-          const img = (data.images && data.images[0]) ? data.images[0].url_570xN : "";
+          const img = (data.images && data.images[0]) ? (data.images[0].url_570xN || data.images[0].url_fullxfull || "") : "";
           await db.execute("INSERT IGNORE INTO listings (listing_id, image_url) VALUES (?, ?)", [target_id, img]);
         }
       }

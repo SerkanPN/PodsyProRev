@@ -1,5 +1,6 @@
 // src/ListingDetail.tsx
 import { useEffect, useRef, useState } from 'react';
+import { useAppContext } from './AppContext';
 
 // Helper for formatting timestamps
 const formatTS = (ts: number | null) => {

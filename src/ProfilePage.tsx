@@ -6,9 +6,34 @@ interface ProfilePageProps {
 }
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
-  const { currentUser, token } = useAppContext();
+  const { currentUser, token, fetchMe } = useAppContext();
   const [shops, setShops] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const [isEditingUsername, setIsEditingUsername] = useState(false);
+  const [newUsername, setNewUsername] = useState('');
+
+  const handleSaveUsername = async () => {
+    if (!newUsername.trim()) return;
+    try {
+      const res = await fetch('https://api.podsy.pro/api/me/username', {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json' 
+        },
+        body: JSON.stringify({ username: newUsername })
+      });
+      if (res.ok) {
+        setIsEditingUsername(false);
+        if (fetchMe) fetchMe();
+      } else {
+        alert("Failed to update username");
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchShops = async () => {
     try {
@@ -71,12 +96,35 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
       <div className="bg-[#111] p-6 rounded-3xl border border-[#222] shadow-2xl mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-sky-500 to-emerald-500 flex items-center justify-center text-2xl font-black text-white">
-            {currentUser?.username?.charAt(0).toUpperCase()}
+          <div className="w-16 h-16 rounded-full bg-gradient-to-tr from-sky-500 to-emerald-500 flex items-center justify-center text-2xl font-black text-white overflow-hidden">
+            {currentUser?.avatar_url ? (
+              <img src={currentUser.avatar_url} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              currentUser?.username?.charAt(0).toUpperCase()
+            )}
           </div>
           <div>
-            <h3 className="text-xl font-bold text-white">{currentUser?.username}</h3>
-            <p className="text-sm text-zinc-500">Plan: SaaS Pro Tier</p>
+            {isEditingUsername ? (
+              <div className="flex items-center gap-2">
+                <input 
+                  type="text" 
+                  value={newUsername} 
+                  onChange={(e) => setNewUsername(e.target.value)} 
+                  className="bg-black border border-[#333] text-white px-2 py-1 rounded text-lg font-bold"
+                  autoFocus
+                />
+                <button onClick={handleSaveUsername} className="bg-emerald-500 text-black px-3 py-1 rounded font-bold text-sm">Save</button>
+                <button onClick={() => setIsEditingUsername(false)} className="text-zinc-500 hover:text-white px-2 py-1 rounded font-bold text-sm">Cancel</button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <h3 className="text-xl font-bold text-white">{currentUser?.username}</h3>
+                <button onClick={() => { setIsEditingUsername(true); setNewUsername(currentUser?.username || ''); }} className="text-zinc-600 hover:text-sky-400">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                </button>
+              </div>
+            )}
+            <p className="text-sm text-zinc-500">{currentUser?.email || 'Plan: SaaS Pro Tier'}</p>
           </div>
         </div>
       </div>
@@ -108,8 +156,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           {shops.map((shop, idx) => (
             <div key={idx} className="bg-[#111] p-6 rounded-3xl border border-[#222] hover:border-emerald-500/50 transition group">
               <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-500 font-black">
-                  {shop.shop_name?.charAt(0).toUpperCase() || 'E'}
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 text-emerald-500 font-black overflow-hidden">
+                  {shop.icon_url ? (
+                    <img src={shop.icon_url} alt={shop.shop_name} className="w-full h-full object-cover" />
+                  ) : (
+                    shop.shop_name?.charAt(0).toUpperCase() || 'E'
+                  )}
                 </div>
                 <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-md font-bold uppercase tracking-widest">
                   Aktif (Full Access)
