@@ -5,7 +5,7 @@ import App from './App'
 import { AppProvider } from './AppContext';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
-const GOOGLE_CLIENT_ID = '999999999999-dummy.apps.googleusercontent.com'; // User needs to replace this later
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '999999999999-dummy.apps.googleusercontent.com';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
