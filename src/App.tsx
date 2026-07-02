@@ -346,10 +346,11 @@ const App = () => {
   }
 
   if (currentUser === null) {
-    if (window.location.pathname === '/testers') {
-      return <TesterLoginPage />;
-    }
-    return <LoginPage />;
+      if (window.location.pathname === '/testers') {
+        return <TesterLoginPage />;
+      }
+      if (showLogin) return <LoginPage />;
+      return <LandingPage onLoginClick={() => setShowLogin(true)} />;
   }
 
   return (
