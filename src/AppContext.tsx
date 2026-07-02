@@ -32,39 +32,6 @@ export const useAppContext = () => {
 
 // Uygulamayı sarmalayacak olan Provider bileşeni
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-import { supabase } from './supabase';
-
-// Context'te saklanacak verilerin ve fonksiyonların tip tanımı
-interface AppContextType {
-  favData: any[];
-  historyData: any[];
-  fetchFavorites: (type: string) => void;
-  fetchHistory: (type: string) => void;
-  toggleFollow: (type: string, id: string, e?: React.MouseEvent) => Promise<number | undefined>;
-  HeartIcon: React.FC<{ isTracked: boolean }>;
-  resolvePrice: (p: any) => number;
-  currentUser: any;
-  loginWithGoogle: (token: string) => Promise<void>;
-  logout: () => void;
-  token: string | null;
-  fetchMe: () => void;
-  authLoading: boolean;
-}
-
-// Başlangıç değerleriyle context'i oluşturma
-const AppContext = createContext<AppContextType | undefined>(undefined);
-
-// Diğer bileşenlerin context'e kolayca erişmesini sağlayacak özel bir hook
-export const useAppContext = () => {
-  const context = useContext(AppContext);
-  if (context === undefined) {
-    throw new Error('useAppContext must be used within an AppProvider');
-  }
-  return context;
-};
-
-// Uygulamayı sarmalayacak olan Provider bileşeni
-export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [favData, setFavData] = useState<any[]>([]);
   const [historyData, setHistoryData] = useState<any[]>([]);
   const [token, setToken] = useState<string | null>(localStorage.getItem('podsy_token'));
@@ -75,31 +42,33 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        setToken(session.access_token);
-        setCurrentUser({
-          id: session.user.id,
-          email: session.user.email,
-          role: 'user',
-          avatar_url: session.user.user_metadata?.avatar_url || ''
-        });
-      }
-    });
+          setToken(session.access_token);
+          setCurrentUser({
+            id: session.user.id,
+            email: session.user.email,
+            role: 'user',
+            avatar_url: session.user.user_metadata?.avatar_url || ''
+          });
+        }
+        
+      });
 
-    supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        setToken(session.access_token);
-        setCurrentUser({
-          id: session.user.id,
-          email: session.user.email,
-          role: 'user',
-          avatar_url: session.user.user_metadata?.avatar_url || ''
-        });
-      } else {
-        setToken(null);
+      supabase.auth.onAuthStateChange((_event, session) => {
+        if (session) {
+          setToken(session.access_token);
+          setCurrentUser({
+            id: session.user.id,
+            email: session.user.email,
+            role: 'user',
+            avatar_url: session.user.user_metadata?.avatar_url || ''
+          });
+        } else {
+          setToken(null);
         setAuthLoading(false);
-        setCurrentUser(null);
-      }
-    });
+          setCurrentUser(null);
+        }
+        
+      });
   }, []);
 
   // Token değiştiğinde localStorage'ı güncelle ve kullanıcıyı çek
@@ -122,6 +91,46 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (res.ok) {
         const data = await res.json();
         setCurrentUser(data);
+        setAuthLoading(false);
+      } else {
+        // Fallback to sending token to /api/auth/google in case user doesn't exist yet
+        const authRes = await fetch('/api/auth/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            token, 
+            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY 
+          })
+        });
+        if (authRes.ok) {
+          const authData = await authRes.json();
+          // We got our custom backend token
+          setToken(authData.token);
+        } else {
+          setToken(null);
+        }
+      }
+    } catch (e) {
+      console.error(e);
+      setToken(null);
+    }
+  };
+
+  const loginWithGoogle = async (googleToken: string) => {
+    // This function is kept for backward compatibility if needed, but not used by new LoginPage
+  };
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setToken(null);
+    setCurrentUser(null);
+  };
+
+  const fetchFavorites = useCallback((type: string) => {
+    fetch(`/favorites/${type}`, { headers: { 'Authorization': `Bearer ${token}` } })
+      .then(res => res.ok ? res.json() : [])
+      .then(data => setFavData(data))
+      .catch(err => console.error("Favoriler çekilemedi:", err));
   }, []);
 
   const fetchHistory = useCallback((type: string) => {
