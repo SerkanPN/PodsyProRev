@@ -271,9 +271,9 @@ const authenticateToken = (req, res, next) => {
 };
 
 const checkAnalysisLimit = async (req, res, next) => {
-  const user = req.user;
-  if (user.role === 'admin') return next();
+  return next(); // Deneme aşamasında limitsiz
   
+  const user = req.user;
   if (user.subscription_end_date) {
     const endDate = new Date(user.subscription_end_date.split('.')[0] + 'Z');
     if (new Date() > endDate) {
