@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import { OAuth2Client } from 'google-auth-library';
 import crypto from 'crypto';
 import fetch from 'node-fetch';
 
@@ -327,19 +326,21 @@ const injectTrackingStatusToListings = async (listings, userId) => {
 };
 
 // --- AUTH ENDPOINTS ---
-const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID || 'dummy_client_id');
 
 app.post("/api/auth/google", async (req, res) => {
   try {
     const { token } = req.body;
-    const ticket = await googleClient.verifyIdToken({
-      idToken: token,
-      audience: process.env.GOOGLE_CLIENT_ID || 'dummy_client_id'
-    });
-    const payload = ticket.getPayload();
+    
+    // Verify token using Google's public tokeninfo endpoint to avoid google-auth-library dependency
+    const googleRes = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${token}`);
+    if (!googleRes.ok) {
+      return res.status(400).json({ error: "Invalid Google Token" });
+    }
+    
+    const payload = await googleRes.json();
     
     if (!payload || !payload.email) {
-      return res.status(400).json({ error: "Invalid Google Token" });
+      return res.status(400).json({ error: "Invalid Google Token Payload" });
     }
 
     const email = payload.email;
