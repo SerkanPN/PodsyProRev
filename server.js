@@ -15,7 +15,9 @@ app.use(express.json());
 
 const PORT = process.env.PORT || 3000;
 const SECRET_KEY = process.env.SECRET_KEY || "PODSYPRO_SUPER_SECRET_KEY_CHANGE_ME";
-const ETSY_API_KEY = (process.env.ETSY_API_KEY || "34axrr0o1tzjvfcdn2mexpp4").trim();
+let rawApiKey = (process.env.ETSY_API_KEY || "34axrr0o1tzjvfcdn2mexpp4").trim();
+if (rawApiKey.includes(':')) rawApiKey = rawApiKey.split(':')[0];
+const ETSY_API_KEY = rawApiKey;
 const ETSY_SHARED_SECRET = (process.env.ETSY_SHARED_SECRET || "f5njekm23y").trim();
 const REDIRECT_URI = process.env.REDIRECT_URI || "https://podsy.pro/etsy/callback";
 const BASE_URL = "https://openapi.etsy.com/v3/application";
