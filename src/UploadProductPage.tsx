@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 interface UploadProductPageProps {
   shopId: string;
@@ -32,7 +32,7 @@ const UploadProductPage: React.FC<UploadProductPageProps> = ({ shopId, onBack })
   };
 
   const handleCategorySelect = () => {
-    const val = prompt("Lütfen bir Taxonomy ID girin (Örn: 1):");
+    const val = prompt("L�tfen bir Taxonomy ID girin (�rn: 1):");
     if (val && !isNaN(parseInt(val))) {
       setFormData(prev => ({ ...prev, taxonomy_id: val }));
     }
@@ -75,7 +75,7 @@ const UploadProductPage: React.FC<UploadProductPageProps> = ({ shopId, onBack })
       setLoadingEtsyData(true);
       try {
         const token = localStorage.getItem('token');
-        const shippingRes = await fetch(`https://api.podsy.pro/api/etsy/connections/${shopId}/shipping-profiles`, {
+        const shippingRes = await fetch(`/api/etsy/connections/${shopId}/shipping-profiles`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         if (shippingRes.ok) {
@@ -104,7 +104,7 @@ const UploadProductPage: React.FC<UploadProductPageProps> = ({ shopId, onBack })
 
   const handlePublish = async () => {
     if (!formData.title || !formData.description || !formData.price || !formData.quantity || !formData.taxonomy_id) {
-        alert("Lütfen zorunlu alanları (*) doldurun: Başlık, Açıklama, Fiyat, Miktar, Taxonomy ID");
+        alert("L�tfen zorunlu alanlari (*) doldurun: Baslik, A�iklama, Fiyat, Miktar, Taxonomy ID");
         return;
     }
     
@@ -116,7 +116,7 @@ const UploadProductPage: React.FC<UploadProductPageProps> = ({ shopId, onBack })
     setIsSubmitting(true);
     try {
         const token = localStorage.getItem('token');
-        const res = await fetch(`https://api.podsy.pro/api/etsy/connections/${shopId}/create-listing`, {
+        const res = await fetch(`/api/etsy/connections/${shopId}/create-listing`, {
             method: 'POST',
             headers: { 
                 'Authorization': `Bearer ${token}`,
@@ -140,7 +140,7 @@ const UploadProductPage: React.FC<UploadProductPageProps> = ({ shopId, onBack })
         
         if (res.ok) {
             const data = await res.json();
-            alert("BAŞARILI! Ürün taslak olarak mağazanıza eklendi. Listing ID: " + data.listing_id);
+            alert("BASARILI! �r�n taslak olarak magazaniza eklendi. Listing ID: " + data.listing_id);
             onBack();
         } else {
             const err = await res.text();
@@ -162,7 +162,7 @@ const UploadProductPage: React.FC<UploadProductPageProps> = ({ shopId, onBack })
           <div className="p-2 bg-white/5 group-hover:bg-white/10 rounded-lg border border-white/5">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
           </div>
-          <span className="font-bold text-sm">İptal ve Geri Dön</span>
+          <span className="font-bold text-sm">Iptal ve Geri D�n</span>
         </button>
       </div>
 

@@ -28,7 +28,7 @@ const SearchPage = ({ keyword, onListingClick, onShopClick }: SearchPageProps) =
     setError(null);
 
     try {
-      const res = await fetch(`https://api.podsy.pro/search/${encodeURIComponent(query)}?offset=${offset}&force_refresh=${forceRefresh}`, {
+      const res = await fetch(`/search/${encodeURIComponent(query)}?offset=${offset}&force_refresh=${forceRefresh}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const json = await res.json();

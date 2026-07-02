@@ -68,7 +68,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const fetchMe = async () => {
     if (!token) return;
     try {
-      const res = await fetch('https://api.podsy.pro/api/me', {
+      const res = await fetch('/api/me', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -76,7 +76,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         setCurrentUser(data);
       } else {
         // Fallback to sending token to /api/auth/google in case user doesn't exist yet
-        const authRes = await fetch('https://api.podsy.pro/api/auth/google', {
+        const authRes = await fetch('/api/auth/google', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
@@ -110,14 +110,14 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   };
 
   const fetchFavorites = useCallback((type: string) => {
-    fetch(`https://api.podsy.pro/favorites/${type}`, { headers: { 'Authorization': `Bearer ${token}` } })
+    fetch(`/favorites/${type}`, { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => res.ok ? res.json() : [])
       .then(data => setFavData(data))
       .catch(err => console.error("Favoriler çekilemedi:", err));
   }, []);
 
   const fetchHistory = useCallback((type: string) => {
-    fetch(`https://api.podsy.pro/history/${type}`, { headers: { 'Authorization': `Bearer ${token}` } })
+    fetch(`/history/${type}`, { headers: { 'Authorization': `Bearer ${token}` } })
       .then(res => res.ok ? res.json() : [])
       .then(data => setHistoryData(data))
       .catch(err => console.error("Geçmiş çekilemedi:", err));
@@ -126,7 +126,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const toggleFollow = useCallback(async (type: string, id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
-      const res = await fetch(`https://api.podsy.pro/toggle-follow/${type}/${encodeURIComponent(id)}`, { 
+      const res = await fetch(`/toggle-follow/${type}/${encodeURIComponent(id)}`, { 
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });

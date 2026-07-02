@@ -34,7 +34,7 @@ export const ListingDetail: React.FC<ListingDetailProps> = ({ listingId, onBack,
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`https://api.podsy.pro/listing/${id}?force_refresh=${forceRefresh}`, {
+      const response = await fetch(`/listing/${id}?force_refresh=${forceRefresh}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error("Listing verisi alınamadı");
@@ -185,7 +185,7 @@ export const ListingDetail: React.FC<ListingDetailProps> = ({ listingId, onBack,
 
   const onToggleFollow = async (id: string) => {
     try {
-      const res = await fetch(`https://api.podsy.pro/toggle-follow/listing/${encodeURIComponent(id)}`, { method: 'POST' });
+      const res = await fetch(`/toggle-follow/listing/${encodeURIComponent(id)}`, { method: 'POST' });
       const resData = await res.json();
       if (resData.status === 'success') {
         setData((prevData: any) => ({

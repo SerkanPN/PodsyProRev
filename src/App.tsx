@@ -57,7 +57,7 @@ const App = () => {
     const state = urlParams.get('state');
     if (window.location.pathname.includes('/etsy/callback') && code && state) {
       setLoading(true);
-      fetch(`https://api.podsy.pro/etsy/callback`, {
+      fetch(`/etsy/callback`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code, state })
@@ -177,7 +177,7 @@ const App = () => {
     setLoading(true);
     setErrorData(null);
     try {
-      const res = await fetch(`https://api.podsy.pro/shop/${shopId}?force_refresh=${forceRefresh}`);
+      const res = await fetch(`/shop/${shopId}?force_refresh=${forceRefresh}`);
       const json = await res.json();
       if(json.ERROR) throw new Error(typeof json.ERROR === 'string' ? json.ERROR : JSON.stringify(json.ERROR));
       setShopData(json);
@@ -190,7 +190,7 @@ const App = () => {
   const handleSyncAll = async () => {
     setSyncing(true);
     try {
-      await fetch(`https://api.podsy.pro/sync-all`, { 
+      await fetch(`/sync-all`, { 
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
@@ -208,7 +208,7 @@ const App = () => {
   
     setSyncing(true);
     try {
-      const res = await fetch('https://api.podsy.pro/import-keywords', {
+      const res = await fetch('/import-keywords', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` },
         body: formData,

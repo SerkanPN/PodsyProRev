@@ -16,7 +16,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const handleSaveUsername = async () => {
     if (!newUsername.trim()) return;
     try {
-      const res = await fetch('https://api.podsy.pro/api/me/username', {
+      const res = await fetch('/api/me/username', {
         method: 'PUT',
         headers: { 
           'Authorization': `Bearer ${token}`,
@@ -37,7 +37,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
   const fetchShops = async () => {
     try {
-      const res = await fetch('https://api.podsy.pro/api/me/shops', {
+      const res = await fetch('/api/me/shops', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -57,7 +57,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
   const handleConnectShop = async () => {
     try {
-      const res = await fetch('https://api.podsy.pro/etsy/connect', {
+      const res = await fetch('/etsy/connect', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       const data = await res.json();
@@ -71,7 +71,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const handleDisconnectShop = async (connectionId: number) => {
     if (!window.confirm("Bu mağazanın bağlantısını kesmek istediğinize emin misiniz?")) return;
     try {
-      const res = await fetch(`https://api.podsy.pro/api/me/shops/${connectionId}`, {
+      const res = await fetch(`/api/me/shops/${connectionId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${token}` }
       });

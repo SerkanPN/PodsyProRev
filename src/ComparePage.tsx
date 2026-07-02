@@ -32,8 +32,8 @@ const ComparePage: React.FC<ComparePageProps> = ({ onListingClick, onShopClick }
 
     try {
       const headers = { 'Authorization': `Bearer ${token}` };
-      const res1 = await fetch(`https://api.podsy.pro/${type}/${id1}?force_refresh=false`, { headers });
-      const res2 = await fetch(`https://api.podsy.pro/${type}/${id2}?force_refresh=false`, { headers });
+      const res1 = await fetch(`/${type}/${id1}?force_refresh=false`, { headers });
+      const res2 = await fetch(`/${type}/${id2}?force_refresh=false`, { headers });
       
       const json1 = await res1.json();
       const json2 = await res2.json();

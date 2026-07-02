@@ -56,7 +56,7 @@ const ShopDetail = ({ shopId, onBack, onListingClick, onUploadClick }: ShopDetai
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`https://api.podsy.pro/shop/${id}?force_refresh=${forceRefresh}`, {
+      const res = await fetch(`/shop/${id}?force_refresh=${forceRefresh}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!res.ok) throw new Error("Mağaza verisi alınamadı");

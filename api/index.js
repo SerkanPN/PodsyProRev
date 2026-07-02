@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import mysql from 'mysql2/promise';
+import pg from 'pg';
+const { Pool } = pg;
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
@@ -22,241 +23,28 @@ const REDIRECT_URI = process.env.REDIRECT_URI || "https://podsy.pro/etsy/callbac
 const BASE_URL = "https://openapi.etsy.com/v3/application";
 const mysqlDate = (d = new Date()) => d.toISOString().slice(0, 19).replace("T", " ");
 
-const db = mysql.createPool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'podsypro_admin',
-  password: process.env.DB_PASSWORD || 'QusG4QHHHaiTn8$2',
-  database: process.env.DB_NAME || 'podsypro_db',
-  waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  charset: 'utf8mb4'
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
-async function initDB() {
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS raw_responses (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      shop_id VARCHAR(255),
-      endpoint TEXT,
-      data_json LONGTEXT,
-      captured_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS keywords (
-      keyword VARCHAR(255) PRIMARY KEY,
-      total_results INT,
-      last_scanned TIMESTAMP,
-      is_tracked TINYINT(1) DEFAULT 0,
-      INDEX idx_is_tracked (is_tracked)
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS shops (
-      shop_id VARCHAR(255) PRIMARY KEY,
-      shop_name VARCHAR(255),
-      url VARCHAR(255),
-      icon_url VARCHAR(255),
-      transaction_sold_count INT,
-      review_average FLOAT,
-      review_count INT,
-      listing_active_count INT,
-      announcement TEXT,
-      currency_code VARCHAR(10),
-      shop_location_country_iso VARCHAR(10),
-      is_tracked TINYINT(1) DEFAULT 0,
-      last_scan TIMESTAMP,
-      INDEX idx_is_tracked (is_tracked)
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS listings (
-      listing_id VARCHAR(255) PRIMARY KEY,
-      shop_id VARCHAR(255),
-      title TEXT,
-      description TEXT,
-      url VARCHAR(255),
-      price FLOAT,
-      currency_code VARCHAR(10),
-      views INT,
-      num_favorers INT,
-      quantity INT,
-      tags TEXT,
-      materials TEXT,
-      image_url VARCHAR(255),
-      is_tracked TINYINT(1) DEFAULT 0,
-      last_scan TIMESTAMP,
-      FOREIGN KEY(shop_id) REFERENCES shops(shop_id),
-      INDEX idx_is_tracked (is_tracked)
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS snapshots (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      target_id VARCHAR(255),
-      target_type VARCHAR(50), 
-      views INT,
-      favorites INT,
-      quantity INT,
-      price FLOAT,
-      transaction_sold_count INT,
-      capture_time TIMESTAMP,
-      original_price FLOAT,
-      shipping_price FLOAT,
-      badges_json TEXT,
-      last_modified_timestamp INT,
-      INDEX idx_target (target_id, target_type)
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS full_json_cache (
-      target_id VARCHAR(255) PRIMARY KEY,
-      target_type VARCHAR(50),
-      data LONGTEXT,
-      last_updated TIMESTAMP
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS variation_snapshots (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      snapshot_id INT,
-      sku VARCHAR(255),
-      property_values_json TEXT,
-      price FLOAT,
-      quantity INT,
-      FOREIGN KEY(snapshot_id) REFERENCES snapshots(id)
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      username VARCHAR(255) UNIQUE,
-      email VARCHAR(255) UNIQUE,
-      google_id VARCHAR(255) UNIQUE,
-      avatar_url VARCHAR(500),
-      password_hash VARCHAR(255),
-      role VARCHAR(50) DEFAULT 'user',
-      daily_limit INT DEFAULT 50,
-      daily_usage INT DEFAULT 0,
-      last_reset_date VARCHAR(50),
-      subscription_end_date VARCHAR(50),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
-
-  try { await db.execute("ALTER TABLE users ADD COLUMN email VARCHAR(255) UNIQUE"); } catch(e) {}
-  try { await db.execute("ALTER TABLE users ADD COLUMN google_id VARCHAR(255) UNIQUE"); } catch(e) {}
-  try { await db.execute("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(500)"); } catch(e) {}
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS etsy_connections (
-      id INT AUTO_INCREMENT PRIMARY KEY,
-      user_id INT,
-      etsy_shop_id VARCHAR(255),
-      shop_name VARCHAR(255),
-      access_token TEXT,
-      refresh_token TEXT,
-      expires_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      FOREIGN KEY(user_id) REFERENCES users(id)
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS oauth_states (
-      state VARCHAR(255) PRIMARY KEY,
-      code_verifier VARCHAR(255) NOT NULL,
-      user_id INT,
-      created_at TIMESTAMP
-    )
-  `);
-
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS user_tracked_keywords (
-      user_id INT,
-      keyword VARCHAR(255),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (user_id, keyword)
-    )
-  `);
-  
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS user_tracked_shops (
-      user_id INT,
-      shop_id VARCHAR(255),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (user_id, shop_id)
-    )
-  `);
-  
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS user_tracked_listings (
-      user_id INT,
-      listing_id VARCHAR(255),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (user_id, listing_id)
-    )
-  `);
-  
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS user_history_keywords (
-      user_id INT,
-      keyword VARCHAR(255),
-      last_viewed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (user_id, keyword)
-    )
-  `);
-  
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS user_history_shops (
-      user_id INT,
-      shop_id VARCHAR(255),
-      last_viewed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (user_id, shop_id)
-    )
-  `);
-  
-  await db.execute(`
-    CREATE TABLE IF NOT EXISTS user_history_listings (
-      user_id INT,
-      listing_id VARCHAR(255),
-      last_viewed TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (user_id, listing_id)
-    )
-  `);
-
-  const [adminUsers] = await db.execute("SELECT id FROM users WHERE username = 'SerkanPN'");
-  let adminId = adminUsers.length > 0 ? adminUsers[0].id : null;
-  if (!adminId) {
-    const [result] = await db.execute("INSERT INTO users (username, password_hash, role) VALUES (?, ?, ?)", ['SerkanPN', 'admin_placeholder', 'admin']);
-    adminId = result.insertId;
+const db = {
+  execute: async (sql, params = []) => {
+    let paramIndex = 1;
+    let pgSql = sql.replace(/\?/g, () => `${paramIndex++}`);
+    const res = await pool.query(pgSql, params);
+    return [res.rows, res];
+  },
+  query: async (sql, params = []) => {
+    let paramIndex = 1;
+    let pgSql = sql.replace(/\?/g, () => `${paramIndex++}`);
+    const res = await pool.query(pgSql, params);
+    return [res.rows, res];
   }
+};
 
-  const [trackedKeywords] = await db.execute("SELECT keyword FROM keywords WHERE is_tracked = 1");
-  for (const row of trackedKeywords) {
-    await db.execute("INSERT IGNORE INTO user_tracked_keywords (user_id, keyword) VALUES (?, ?)", [adminId, row.keyword]);
-  }
 
-  const [trackedShops] = await db.execute("SELECT shop_id FROM shops WHERE is_tracked = 1");
-  for (const row of trackedShops) {
-    await db.execute("INSERT IGNORE INTO user_tracked_shops (user_id, shop_id) VALUES (?, ?)", [adminId, row.shop_id]);
-  }
-
-  const [trackedListings] = await db.execute("SELECT listing_id FROM listings WHERE is_tracked = 1");
-  for (const row of trackedListings) {
-    await db.execute("INSERT IGNORE INTO user_tracked_listings (user_id, listing_id) VALUES (?, ?)", [adminId, row.listing_id]);
-  }
-}
-
-initDB().catch(err => console.error("DB Init Error:", err));
 
 // --- MIDDLEWARE ---
 const authenticateToken = (req, res, next) => {
@@ -565,7 +353,7 @@ app.get("/search/:keyword", authenticateToken, checkAnalysisLimit, async (req, r
       cachedRes.listings = await injectTrackingStatusToListings(cachedRes.listings, req.user.id);
       const [kRow] = await db.execute("SELECT keyword FROM user_tracked_keywords WHERE user_id = ? AND keyword = ?", [req.user.id, keyword]);
       cachedRes.is_tracked = kRow.length > 0 ? 1 : 0;
-      await db.execute("REPLACE INTO user_history_keywords (user_id, keyword, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP)", [req.user.id, keyword]);
+      await db.execute("INSERT INTO user_history_keywords (user_id, keyword, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT (user_id, keyword) DO UPDATE SET last_viewed = CURRENT_TIMESTAMP", [req.user.id, keyword]);
       return res.json(cachedRes);
     }
     
@@ -582,7 +370,7 @@ app.get("/search/:keyword", authenticateToken, checkAnalysisLimit, async (req, r
     const results = data.results || [];
     
     if (offset === 0) {
-      await db.execute("INSERT IGNORE INTO keywords (keyword, total_results, last_scanned, is_tracked) VALUES (?, ?, ?, 0)", [keyword, count, mysqlDate()]);
+      await db.execute("INSERT INTO keywords (keyword, total_results, last_scanned, is_tracked) VALUES (?, ?, ?, 0) ON CONFLICT DO NOTHING", [keyword, count, mysqlDate()]);
       await db.execute("UPDATE keywords SET total_results = ?, last_scanned = ? WHERE keyword = ?", [count, mysqlDate(), keyword]);
     }
     
@@ -606,7 +394,7 @@ app.get("/search/:keyword", authenticateToken, checkAnalysisLimit, async (req, r
       const p_data = item.price || {};
       const price_val = p_data ? (parseFloat(p_data.amount || 0) / parseFloat(p_data.divisor || 1)) : 0.0;
       
-      await db.execute("INSERT IGNORE INTO shops (shop_id, shop_name, icon_url) VALUES (?, ?, ?)", [s_id, shop_name, icon_url]);
+      await db.execute("INSERT INTO shops (shop_id, shop_name, icon_url) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", [s_id, shop_name, icon_url]);
       await db.execute("UPDATE shops SET shop_name = ?, icon_url = ? WHERE shop_id = ?", [shop_name, icon_url, s_id]);
       
       const now = mysqlDate();
@@ -614,9 +402,10 @@ app.get("/search/:keyword", authenticateToken, checkAnalysisLimit, async (req, r
       const current_is_tracked = trackRows.length > 0 ? trackRows[0].is_tracked : 0;
       
       await db.execute(`
-        REPLACE INTO listings 
+        INSERT INTO listings 
         (listing_id, shop_id, title, url, price, currency_code, views, num_favorers, quantity, tags, materials, image_url, last_scan, is_tracked) 
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT (listing_id) DO UPDATE SET shop_id=EXCLUDED.shop_id, title=EXCLUDED.title, url=EXCLUDED.url, price=EXCLUDED.price, currency_code=EXCLUDED.currency_code, views=EXCLUDED.views, num_favorers=EXCLUDED.num_favorers, quantity=EXCLUDED.quantity, tags=EXCLUDED.tags, materials=EXCLUDED.materials, image_url=EXCLUDED.image_url, last_scan=EXCLUDED.last_scan, is_tracked=EXCLUDED.is_tracked
       `, [
         l_id, s_id, item.title, item.url, price_val, p_data.currency_code, 
         item.views, item.num_favorers, item.quantity, 
@@ -636,14 +425,14 @@ app.get("/search/:keyword", authenticateToken, checkAnalysisLimit, async (req, r
     }
     
     const finalResponse = { keyword, total_count: count, offset, listings: parsedResults };
-    await db.execute("REPLACE INTO full_json_cache (target_id, target_type, data, last_updated) VALUES (?, 'keyword', ?, ?)", [
+    await db.execute("INSERT INTO full_json_cache (target_id, target_type, data, last_updated) VALUES (?, 'keyword', ?, ?) ON CONFLICT (target_id) DO UPDATE SET target_type = EXCLUDED.target_type, data = EXCLUDED.data, last_updated = EXCLUDED.last_updated", [
       cacheKey, JSON.stringify(finalResponse), mysqlDate()
     ]);
     
     finalResponse.listings = await injectTrackingStatusToListings(finalResponse.listings, req.user.id);
     const [kRow2] = await db.execute("SELECT keyword FROM user_tracked_keywords WHERE user_id = ? AND keyword = ?", [req.user.id, keyword]);
     finalResponse.is_tracked = kRow2.length > 0 ? 1 : 0;
-    await db.execute("REPLACE INTO user_history_keywords (user_id, keyword, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP)", [req.user.id, keyword]);
+    await db.execute("INSERT INTO user_history_keywords (user_id, keyword, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT (user_id, keyword) DO UPDATE SET last_viewed = CURRENT_TIMESTAMP", [req.user.id, keyword]);
     
     res.json(finalResponse);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -662,7 +451,7 @@ app.get("/shop/:shop_id", authenticateToken, checkAnalysisLimit, async (req, res
       cachedRes.listings = await injectTrackingStatusToListings(cachedRes.listings || [], req.user.id);
       const [sRow] = await db.execute("SELECT shop_id FROM user_tracked_shops WHERE user_id = ? AND shop_id = ?", [req.user.id, shopId]);
       if(cachedRes.shop) cachedRes.shop.is_tracked = sRow.length > 0 ? 1 : 0;
-      await db.execute("REPLACE INTO user_history_shops (user_id, shop_id, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP)", [req.user.id, shopId]);
+      await db.execute("INSERT INTO user_history_shops (user_id, shop_id, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT (user_id, shop_id) DO UPDATE SET last_viewed = CURRENT_TIMESTAMP", [req.user.id, shopId]);
       return res.json(cachedRes);
     }
     
@@ -673,7 +462,7 @@ app.get("/shop/:shop_id", authenticateToken, checkAnalysisLimit, async (req, res
     const shopCore = await shopRes.json();
     const iconUrl = shopCore.icon_url_fullxfull || "";
     
-    await db.execute("INSERT IGNORE INTO shops (shop_id, shop_name, icon_url, is_tracked) VALUES (?, ?, ?, 0)", [shopId, shopCore.shop_name, iconUrl]);
+    await db.execute("INSERT INTO shops (shop_id, shop_name, icon_url, is_tracked) VALUES (?, ?, ?, 0) ON CONFLICT DO NOTHING", [shopId, shopCore.shop_name, iconUrl]);
     await db.execute("UPDATE shops SET shop_name = ?, icon_url = ? WHERE shop_id = ?", [shopCore.shop_name, iconUrl, shopId]);
     
     const listingsRes = await fetch(`${BASE_URL}/shops/${shopId}/listings/active?limit=50&includes=Images`, { headers: { "x-api-key": authString } });
@@ -691,8 +480,8 @@ app.get("/shop/:shop_id", authenticateToken, checkAnalysisLimit, async (req, res
       const price_val = p_data ? (parseFloat(p_data.amount || 0) / parseFloat(p_data.divisor || 1)) : 0.0;
       
       await db.execute(`
-        INSERT IGNORE INTO listings (listing_id, shop_id, title, price, currency_code, views, num_favorers, quantity, image_url, is_tracked) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
+        INSERT INTO listings (listing_id, shop_id, title, price, currency_code, views, num_favorers, quantity, image_url, is_tracked) 
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0) ON CONFLICT DO NOTHING
       `, [l_id, shopId, item.title, price_val, p_data.currency_code, item.views, item.num_favorers, item.quantity, img_url]);
       
       parsedShopListings.push({
@@ -708,14 +497,14 @@ app.get("/shop/:shop_id", authenticateToken, checkAnalysisLimit, async (req, res
     const [history] = await db.execute("SELECT capture_time, transaction_sold_count FROM snapshots WHERE target_id = ? AND target_type = 'shop' ORDER BY capture_time DESC", [shopId]);
     const finalResponse = { shop: shopCore, listings: parsedShopListings, history };
     
-    await db.execute("REPLACE INTO full_json_cache (target_id, target_type, data, last_updated) VALUES (?, 'shop', ?, ?)", [
+    await db.execute("INSERT INTO full_json_cache (target_id, target_type, data, last_updated) VALUES (?, 'shop', ?, ?) ON CONFLICT (target_id) DO UPDATE SET target_type = EXCLUDED.target_type, data = EXCLUDED.data, last_updated = EXCLUDED.last_updated", [
       shopId, JSON.stringify(finalResponse), mysqlDate()
     ]);
     
     finalResponse.listings = await injectTrackingStatusToListings(finalResponse.listings, req.user.id);
     const [sRow2] = await db.execute("SELECT shop_id FROM user_tracked_shops WHERE user_id = ? AND shop_id = ?", [req.user.id, shopId]);
     finalResponse.shop.is_tracked = sRow2.length > 0 ? 1 : 0;
-    await db.execute("REPLACE INTO user_history_shops (user_id, shop_id, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP)", [req.user.id, shopId]);
+    await db.execute("INSERT INTO user_history_shops (user_id, shop_id, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT (user_id, shop_id) DO UPDATE SET last_viewed = CURRENT_TIMESTAMP", [req.user.id, shopId]);
     
     res.json(finalResponse);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -778,13 +567,13 @@ app.get("/listing/:listing_id", authenticateToken, checkAnalysisLimit, async (re
       price: price_val
     };
     
-    await db.execute("REPLACE INTO full_json_cache (target_id, target_type, data, last_updated) VALUES (?, 'listing', ?, ?)", [
+    await db.execute("INSERT INTO full_json_cache (target_id, target_type, data, last_updated) VALUES (?, 'listing', ?, ?) ON CONFLICT (target_id) DO UPDATE SET target_type = EXCLUDED.target_type, data = EXCLUDED.data, last_updated = EXCLUDED.last_updated", [
       listingId, JSON.stringify(finalResponse), now
     ]);
     
     const [lRow2] = await db.execute("SELECT listing_id FROM user_tracked_listings WHERE user_id = ? AND listing_id = ?", [req.user.id, listingId]);
     finalResponse.listing.is_tracked = lRow2.length > 0 ? 1 : 0;
-    await db.execute("REPLACE INTO user_history_listings (user_id, listing_id, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP)", [req.user.id, listingId]);
+    await db.execute("INSERT INTO user_history_listings (user_id, listing_id, last_viewed) VALUES (?, ?, CURRENT_TIMESTAMP) ON CONFLICT (user_id, listing_id) DO UPDATE SET last_viewed = CURRENT_TIMESTAMP", [req.user.id, listingId]);
     
     res.json(finalResponse);
   } catch(e) { res.status(500).json({ error: e.message }); }
@@ -808,17 +597,17 @@ app.post("/toggle-follow/:target_type/:target_id", authenticateToken, async (req
         const resApi = await fetch(`${BASE_URL}/shops/${target_id}`, { headers: { "x-api-key": authString } });
         if (resApi.ok) {
           const data = await resApi.json();
-          await db.execute("INSERT IGNORE INTO shops (shop_id, shop_name, icon_url) VALUES (?, ?, ?)", [target_id, data.shop_name || "", data.icon_url_fullxfull || ""]);
+          await db.execute("INSERT INTO shops (shop_id, shop_name, icon_url) VALUES (?, ?, ?) ON CONFLICT DO NOTHING", [target_id, data.shop_name || "", data.icon_url_fullxfull || ""]);
         }
       } else if (target_type === "keyword") {
-        await db.execute("INSERT IGNORE INTO keywords (keyword) VALUES (?)", [target_id]);
+        await db.execute("INSERT INTO keywords (keyword) VALUES (?) ON CONFLICT DO NOTHING", [target_id]);
       } else if (target_type === "listing") {
         const authString = `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`;
         const resApi = await fetch(`${BASE_URL}/listings/${target_id}?includes=Images`, { headers: { "x-api-key": authString } });
         if (resApi.ok) {
           const data = await resApi.json();
           const img = (data.images && data.images[0]) ? (data.images[0].url_570xN || data.images[0].url_fullxfull || "") : "";
-          await db.execute("INSERT IGNORE INTO listings (listing_id, image_url) VALUES (?, ?)", [target_id, img]);
+          await db.execute("INSERT INTO listings (listing_id, image_url) VALUES (?, ?) ON CONFLICT DO NOTHING", [target_id, img]);
         }
       }
     } else {
@@ -914,6 +703,6 @@ app.delete("/api/me/shops/:connection_id", authenticateToken, async (req, res) =
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+
+
+export default app;
