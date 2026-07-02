@@ -430,7 +430,6 @@ const generatePkceChallenge = () => {
   return { codeVerifier, codeChallenge };
 };
 
-};
 
 app.get("/etsy/connect", async (req, res) => {
   try {
