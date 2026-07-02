@@ -229,18 +229,6 @@ const App = () => {
 
   // Hangi sayfanın render edileceğini belirleyen fonksiyon
   const CurrentViewComponent = () => {
-    if (!hasShops && currentView.view !== 'profile') {
-      return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center">
-          <div className="w-24 h-24 mb-6 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500">
-            <svg className="w-12 h-12" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
-          </div>
-          <h2 className="text-3xl font-black text-white mb-2">Connect Your Etsy Shop</h2>
-          <p className="text-zinc-400 mb-8 max-w-md mx-auto">You must connect an Etsy shop to your account before you can use any PodsyPro features.</p>
-          <button onClick={() => navigateTo({ view: 'profile' })} className="bg-sky-500 hover:bg-sky-400 text-white px-8 py-4 rounded-xl font-black uppercase tracking-widest text-sm shadow-lg shadow-sky-500/20 transition">Go to Profile</button>
-        </div>
-      );
-    }
 
     switch (currentView.view) {
       case 'dashboard':
@@ -355,7 +343,7 @@ const App = () => {
 
   return (
     <div className="flex min-h-screen bg-[#0a0a0a] text-zinc-100 font-sans selection:bg-sky-500/30">
-      {currentUser && hasShops && (
+      {currentUser && (
         <aside className="w-64 bg-[#111] border-r border-[#222] flex flex-col sticky top-0 h-screen shrink-0">
           <div className="p-6 border-b border-[#222] cursor-pointer" onClick={() => navigateTo({ view: 'dashboard' })}>
             <h1 className="text-2xl font-black m-0 tracking-tighter italic text-white hover:text-sky-400 transition">PODSY<span className="text-sky-500">PRO</span></h1>
@@ -432,17 +420,15 @@ const App = () => {
       )}
 
       <main className="flex-1 p-8 md:p-12 overflow-y-auto relative">
-        {hasShops && (
-          <div className="max-w-4xl mx-auto flex gap-3 bg-[#111] p-2 rounded-2xl border border-[#333] mb-10 items-center shadow-2xl focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/50 transition-all z-50 relative">
-            <div className="pl-4 text-zinc-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div>
-            <input 
-              className="flex-1 bg-transparent border-none outline-none text-zinc-100 px-2 py-3 text-sm placeholder-zinc-600 font-medium"
-              placeholder="Enter Keyword, Link, Listing ID, or Shop ID for deep analysis..."
-              value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
-            />
-            <button onClick={() => handleSearch(searchQuery)} className="bg-zinc-100 text-zinc-900 border-none px-8 py-3 rounded-xl font-black text-xs cursor-pointer hover:bg-sky-500 hover:text-white hover:scale-105 active:scale-95 transition-all shadow-lg">{loading ? "SCANNING..." : "HACK"}</button>
-          </div>
-        )}
+        <div className="max-w-4xl mx-auto flex gap-3 bg-[#111] p-2 rounded-2xl border border-[#333] mb-10 items-center shadow-2xl focus-within:border-sky-500/50 focus-within:ring-1 focus-within:ring-sky-500/50 transition-all z-50 relative">
+          <div className="pl-4 text-zinc-500"><svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg></div>
+          <input 
+            className="flex-1 bg-transparent border-none outline-none text-zinc-100 px-2 py-3 text-sm placeholder-zinc-600 font-medium"
+            placeholder="Enter Keyword, Link, Listing ID, or Shop ID for deep analysis..."
+            value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleSearch(searchQuery)}
+          />
+          <button onClick={() => handleSearch(searchQuery)} className="bg-zinc-100 text-zinc-900 border-none px-8 py-3 rounded-xl font-black text-xs cursor-pointer hover:bg-sky-500 hover:text-white hover:scale-105 active:scale-95 transition-all shadow-lg">{loading ? "SCANNING..." : "HACK"}</button>
+        </div>
 
         {errorData && !loading && (
           <div className="max-w-4xl mx-auto mb-8 bg-rose-950/30 border border-rose-900/50 rounded-2xl p-6 shadow-2xl animate-[fadeIn_0.3s]">
