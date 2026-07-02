@@ -278,7 +278,7 @@ app.get("/etsy/connect", async (req, res) => {
   } catch(e) { res.status(500).json({ error: e.message }); }
 });
 
-app.post("/etsy/callback", async (req, res) => {
+  app.post("/etsy/callback", authenticateToken, async (req, res) => {
   try {
     const { code, state } = req.body;
     const [states] = await db.execute("SELECT code_verifier FROM oauth_states WHERE state = ?", [state]);
@@ -311,25 +311,17 @@ app.post("/etsy/callback", async (req, res) => {
     
     // Extract etsy_user_id directly from the access token, exactly like python does
     const etsy_user_id = tokenData.access_token.includes('.') ? tokenData.access_token.split('.')[0] : null;
-    let etsyUsername = `etsy_${etsy_user_id}`;
     
     const authString = `${ETSY_API_KEY}:${ETSY_SHARED_SECRET}`;
     
     const meResponse = await fetch(`https://api.etsy.com/v3/application/users/${etsy_user_id}`, {
       headers: { "x-api-key": authString, "Authorization": `Bearer ${tokenData.access_token}` }
     });
-    
-    if (meResponse.ok) {
-      const meData = await meResponse.json();
-      
-      const [users] = await db.execute("SELECT id FROM users WHERE username = ?", [etsyUsername]);
-      if (users.length === 0) {
-        const [result] = await db.execute("INSERT INTO users (username, password_hash) VALUES (?, ?)", [etsyUsername, '']);
-        userId = result.insertId;
-      } else {
-        userId = users[0].id;
-      }
-      const shopResponse = await fetch(`https://api.etsy.com/v3/application/users/${etsy_user_id}/shops`, {
+        if (meResponse.ok) {
+        const meData = await meResponse.json();
+        userId = req.user.id;
+
+        const shopResponse = await fetch(`https://api.etsy.com/v3/application/users/${etsy_user_id}/shops`, {
         headers: { "x-api-key": authString, "Authorization": `Bearer ${tokenData.access_token}` }
       });
       
@@ -347,11 +339,10 @@ app.post("/etsy/callback", async (req, res) => {
           INSERT INTO etsy_connections (user_id, access_token, refresh_token, expires_at)
           VALUES (?, ?, ?, ?)
         `, [userId, tokenData.access_token, tokenData.refresh_token, expiresAt]);
+        }
+        
+        return res.json({ success: true, shop_name: shopName });
       }
-      
-      const token = jwt.sign({ sub: etsyUsername }, SECRET_KEY, { expiresIn: '7d' });
-      return res.json({ access_token: token, token_type: "bearer", msg: "Connected successfully", shop_name: shopName });
-    }
     
     return res.status(400).json({ detail: "Failed to fetch Etsy user profile: " + (await meResponse.text()) });
   } catch(e) { res.status(500).json({ error: e.message }); }

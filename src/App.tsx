@@ -41,37 +41,50 @@ const App = () => {
   // const [loadingMore, setLoadingMore] = useState(false);
 
   const navigateTo = useCallback((newViewState: ViewState) => {
+    // If feature requires a shop, show alert
+    const requiresShop = ['shop', 'listing', 'compare'].includes(newViewState.view);
+    if (requiresShop && !hasShops) {
+      alert("You must connect an Etsy shop to use this feature. Please connect one in your Profile.");
+      setCurrentView({ view: 'profile' });
+      window.history.pushState({ view: 'profile' }, '', `?view=profile`);
+      return;
+    }
     setCurrentView(newViewState);
     // URL'i de yeni state yapısına göre güncelleyelim.
     const params = new URLSearchParams({ view: newViewState.view, ...('id' in newViewState && {id: newViewState.id}), ...('keyword' in newViewState && {keyword: newViewState.keyword}) });
     window.history.pushState(newViewState, '', `?${params.toString()}`);
-  }, []);
+  }, [hasShops]);
 
   const handleBack = useCallback(() => {
     window.history.back();
   }, []);
 
   useEffect(() => {
+    if (authLoading) return;
     const urlParams = new URLSearchParams(window.location.search);
     
     // ETSY OAUTH CALLBACK HANDLING
     const code = urlParams.get('code');
     const state = urlParams.get('state');
     if (window.location.pathname.includes('/etsy/callback') && code && state) {
+      if (!currentUser) {
+        alert("You must log in first.");
+        window.location.href = "/";
+        return;
+      }
       setLoading(true);
       fetch(`/etsy/callback`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ code, state })
       })
       .then(res => res.json())
       .then(data => {
-        if (data.access_token) {
-          localStorage.setItem('token', data.access_token);
-          alert("Etsy successfully connected and logged in!");
+        if (data.success) {
+          alert("Etsy successfully connected!");
           window.location.href = "/?view=profile";
         } else {
-          alert(data.detail || "Connection failed.");
+          alert(data.detail || data.error || "Connection failed.");
           window.location.href = "/";
         }
       })

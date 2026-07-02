@@ -50,7 +50,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             avatar_url: session.user.user_metadata?.avatar_url || ''
           });
         }
-        setAuthLoading(false);
+        
       });
 
       supabase.auth.onAuthStateChange((_event, session) => {
@@ -64,9 +64,10 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
           });
         } else {
           setToken(null);
+        setAuthLoading(false);
           setCurrentUser(null);
         }
-        setAuthLoading(false);
+        
       });
     });
   }, []);
@@ -78,6 +79,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       fetchMe();
     } else {
       localStorage.removeItem('podsy_token');
+      setAuthLoading(false);
     }
   }, [token]);
 
@@ -90,6 +92,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       if (res.ok) {
         const data = await res.json();
         setCurrentUser(data);
+        setAuthLoading(false);
       } else {
         // Fallback to sending token to /api/auth/google in case user doesn't exist yet
         const authRes = await fetch('/api/auth/google', {
