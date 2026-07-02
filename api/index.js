@@ -47,26 +47,52 @@ const db = {
 
 
 // --- MIDDLEWARE ---
-const authenticateToken = (req, res, next) => {
+const authenticateToken = async (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
   if (!token) return res.status(401).json({ detail: "Could not validate credentials" });
 
-  jwt.verify(token, SECRET_KEY, async (err, decoded) => {
-    if (err) return res.status(401).json({ detail: "Could not validate credentials" });
-    try {
-      // Decode with fallback to sub for older tokens
-      const searchCol = decoded.id ? "id" : "username";
-      const searchVal = decoded.id ? decoded.id : decoded.sub;
-      
-      const [users] = await db.execute(`SELECT id, username, role, daily_limit, daily_usage, subscription_end_date FROM users WHERE ${searchCol} = ?`, [searchVal]);
-      if (users.length === 0) return res.status(401).json({ detail: "User not found" });
-      req.user = users[0];
-      next();
-    } catch (e) {
-      return res.status(500).json({ detail: "Database error" });
+  try {
+    const decoded = jwt.decode(token);
+    if (!decoded || !decoded.iss) {
+      // Fallback to custom JWT if it's not a Supabase token
+      jwt.verify(token, SECRET_KEY, async (err, dec) => {
+        if (err) return res.status(401).json({ detail: "Invalid token" });
+        const searchCol = dec.id ? "id" : "username";
+        const searchVal = dec.id ? dec.id : dec.sub;
+        const [users] = await db.execute(`SELECT id, username, role, daily_limit, daily_usage, subscription_end_date FROM users WHERE ${searchCol} = ?`, [searchVal]);
+        if (users.length === 0) return res.status(401).json({ detail: "User not found" });
+        req.user = users[0];
+        next();
+      });
+      return;
     }
-  });
+
+    const supabaseUrl = decoded.iss.replace('/auth/v1', '');
+    const supabaseRes = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (!supabaseRes.ok) return res.status(401).json({ detail: "Invalid Supabase token" });
+    const payload = await supabaseRes.json();
+    const email = payload.email;
+
+    const [users] = await db.execute('SELECT id, username, role, daily_limit, daily_usage, subscription_end_date FROM users WHERE email = ? OR google_id = ?', [email, payload.id]);
+    if (users.length === 0) {
+      // Create user if not exists
+      const username = payload.user_metadata?.full_name || email.split('@')[0];
+      const avatarUrl = payload.user_metadata?.avatar_url || '';
+      await db.execute('INSERT INTO users (username, email, google_id, role, avatar_url, auth_provider) VALUES (?, ?, ?, ?, ?, ?)', [username, email, payload.id, 'user', avatarUrl, 'google']);
+      const [newUsers] = await db.execute('SELECT id, username, role, daily_limit, daily_usage, subscription_end_date FROM users WHERE email = ?', [email]);
+      req.user = newUsers[0];
+    } else {
+      req.user = users[0];
+    }
+    next();
+  } catch (err) {
+    console.error('Auth Error:', err);
+    res.status(401).json({ detail: "Token error" });
+  }
 };
 
 const checkAnalysisLimit = async (req, res, next) => {

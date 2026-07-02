@@ -5,6 +5,7 @@ import SearchPage from './SearchPage';
 import ListPage from './ListPage';
 import ComparePage from './ComparePage';
 import LoginPage from './LoginPage';
+import LandingPage from './LandingPage';
 import TesterLoginPage from './TesterLoginPage';
 import ProfilePage from './ProfilePage';
 import UploadProductPage from './UploadProductPage';
@@ -27,6 +28,7 @@ const App = () => {
   // State'leri birleştirerek daha yönetilebilir hale getirelim.
   const [currentView, setCurrentView] = useState<ViewState>({ view: 'dashboard' });
   const [searchQuery, setSearchQuery] = useState('');
+  const [showLogin, setShowLogin] = useState(false);
   
   // Global yüklenme durumları (sayfa geçişleri için) kalabilir.
   const [loading, setLoading] = useState(false);
