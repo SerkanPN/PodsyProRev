@@ -40,6 +40,9 @@ const App = () => {
   // const [searchOffset, setSearchOffset] = useState(0);
   // const [loadingMore, setLoadingMore] = useState(false);
 
+  const hasShops = currentUser?.shops && currentUser.shops.length > 0;
+  const isAdmin = currentUser?.role === 'admin';
+
   const navigateTo = useCallback((newViewState: ViewState) => {
     // If feature requires a shop, show alert
     const requiresShop = ['shop', 'listing', 'compare'].includes(newViewState.view);
@@ -239,9 +242,6 @@ const App = () => {
       setSyncing(false);
     }
   }, []);
-
-  const hasShops = currentUser?.shops && currentUser.shops.length > 0;
-  const isAdmin = currentUser?.role === 'admin';
 
   // Hangi sayfanın render edileceğini belirleyen fonksiyon
   const CurrentViewComponent = () => {
